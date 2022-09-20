@@ -1,0 +1,117 @@
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<title>1942 Game</title>
+		<link rel="stylesheet" href="/stylesheets/style.css">
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+		<script type="text/javascript" src="/socket.io/socket.io.js"></script>
+		<script>
+			// --------- initialization ------------ //
+			let hero = [];
+			let player_count = 0; 
+			let player_number;
+			let name = prompt('Player Name:');
+			let socket = io();
+			// --------- end of initialization ------------ //
+			
+			// --------- socket.io ------------ //
+			socket.emit('player_detected', { name: name });
+			
+			socket.on('display_hero', function(res){
+				//player_count - to avoid duplicate for prior clients.
+				for(let i = player_count; i < res.players.length; i++){
+					hero.push(res.players[i]);
+					let css = `style = "background: url('/img/1942.gif'); background-position: -85px -180px; width:28px; height:28px; position:absolute;"`
+					$('#container').append(`<div id='${hero[i].name}' ${css}><span>${hero[i].name}</span></div>`);
+					displayHero(hero[i]);
+					player_count++;
+				}
+			})
+			
+			socket.emit('get_player_number');
+			
+			socket.on('give_player_number', function(res) {
+				console.log(res.player_number);
+				player_number = res.player_number;
+			})
+
+			socket.on('movement_x', function(res){
+				hero[res.player_number].x = res.x;
+				displayHero(hero[res.player_number]);
+			})
+			
+			socket.on('movement_y', function(res){
+				hero[res.player_number].y = res.y;
+				displayHero(hero[res.player_number]);
+			})
+
+			socket.on('display_bullets', function(res){
+				document.getElementById('bullets').innerHTML = res.output;
+			})
+			
+			socket.on('display_enemies', function(res){
+				document.getElementById('enemies').innerHTML = res.output;
+			})
+			
+			socket.on('detect_bullet_collision', function(res){
+				document.getElementById('enemies').innerHTML = res.output;
+				audioContainer.play();
+			})
+			
+			socket.on('detect_enemy_collision', function(res){
+				document.getElementById('enemies').innerHTML = res.output;
+				audioContainer.play();
+			})
+			
+			socket.on('end_game', function(res){
+				window.confirm(res.msg);
+			})
+
+			socket.on('display_score', function(res){
+				document.getElementById('score').innerHTML = res.output;
+			})
+			// --------- End of socket.io ------------ //
+			
+			// ------------ functions ------------ //
+			document.addEventListener('keydown', function(e){
+				if(e.keyCode == 37){//left
+					hero[player_number].x -= 10;
+					socket.emit('move_x', { x: hero[player_number].x, player_number: player_number  });
+				}
+				else if(e.keyCode == 39){//right
+					hero[player_number].x += 10;
+					socket.emit('move_x', { x: hero[player_number].x, player_number: player_number });
+				}
+				else if(e.keyCode == 38){//up
+					hero[player_number].y -= 10;
+					socket.emit('move_y', { y: hero[player_number].y, player_number: player_number });
+				}
+				else if(e.keyCode == 40){//down
+					hero[player_number].y += 10;
+					socket.emit('move_y', { y: hero[player_number].y, player_number: player_number });
+				}
+				else if(e.keyCode == 32){
+					socket.emit('got_bullets', { x: hero[player_number].x + 8, y: hero[player_number].y - 15 });
+				}
+			});
+
+			function displayHero(hero){
+				document.getElementById(hero.name).style['top'] = hero.y + "px";
+				document.getElementById(hero.name).style['left'] = hero.x + "px";
+			}
+			// --------- End of functions ------------ //
+		</script>	
+	</head>
+	<body>
+		<div id='container'>
+			<div id='enemies'></div>
+			<div id='bullets'></div>		
+		</div>
+		<div id='score'></div>
+
+		<audio id="audioContainer">
+			<source src="/effects/explosion.wav" type="audio/mpeg">
+		</audio>
+	</body>
+</html>
+
